@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ShoppingBag, Sun, Moon, User, Utensils } from 'lucide-react';
+import { ShoppingBag, Sun, Moon, User, Utensils, Eye, EyeOff } from 'lucide-react';
 import { db, auth } from '../libs/firebase_config.mjs';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -14,6 +14,7 @@ export function ServiceProviderAuth() {
   const { setUser } = useContext(AuthContext);
   const [isLogin, setIsLogin] = useState(true);
   const [notification, setNotification] = useState({ message: '', type: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -61,20 +62,16 @@ export function ServiceProviderAuth() {
         showNotification('Logged in successfully!', 'success');
         navigate('/dashboard');
       } else {
-        // Handle registration
         const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
         
-        // Save additional user data
         await setDoc(doc(db, 'serviceProviders', userCredential.user.uid), {
           businessName: formData.businessName,
           businessType: formData.businessType,
           email: formData.email,
         });
         
-        // Store registration email temporarily
         sessionStorage.setItem('registeredEmail', formData.email);
         
-        // Clear form and switch to login mode
         setFormData({
           ...formData,
           password: '',
@@ -161,12 +158,12 @@ export function ServiceProviderAuth() {
                 onChange={handleInputChange}
               />
             </div>
-            <div>
+            <div className="relative">
               <label htmlFor="password" className="sr-only">Password</label>
               <input
                 id="password"
                 name="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
                 required
                 className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
@@ -176,6 +173,17 @@ export function ServiceProviderAuth() {
                 value={formData.password}
                 onChange={handleInputChange}
               />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                ) : (
+                  <Eye className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                )}
+              </button>
             </div>
           </div>
 
