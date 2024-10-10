@@ -1,22 +1,28 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Menu, X, ShoppingBag, Utensils, Wine, Sun, Moon } from 'lucide-react';
+import { getStoredTheme, toggleStoredTheme } from '../utils/localStorageUtil';
 
 const LandingPage = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(getStoredTheme() === 'dark');
 
   const heroRef = useRef(null);
   const featuresRef = useRef(null);
   const ctaRef = useRef(null);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDarkMode);
+  }, [isDarkMode]);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
   const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-    document.documentElement.classList.toggle('dark');
+    const newTheme = toggleStoredTheme();
+    setIsDarkMode(newTheme === 'dark');
   };
 
   const scrollToSection = (ref) => {
@@ -174,14 +180,14 @@ const LandingPage = () => {
           </h2>
           <div className="mt-8 flex lg:mt-0 lg:flex-shrink-0">
             <div className="inline-flex rounded-md shadow">
-              <button className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-orange-600 bg-white hover:bg-orange-50 transition-colors duration-200">
+              <Link to="/client-auth" className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-orange-600 bg-white hover:bg-orange-50 transition-colors duration-200">
                 Sign up as a customer
-              </button>
+              </Link>
             </div>
             <div className="ml-3 inline-flex rounded-md shadow">
-              <button className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors duration-200">
+              <Link to="/provider-auth" className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors duration-200">
                 Register as a provider
-              </button>
+              </Link>
             </div>
           </div>
         </div>
