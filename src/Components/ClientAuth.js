@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ShoppingBag, Sun, Moon, User, Lock } from 'lucide-react';
+import { ShoppingBag, Sun, Moon, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { db, auth } from '../libs/firebase_config.mjs';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -19,6 +19,7 @@ export function ClientAuth() {
     email: '',
     password: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const registeredEmail = sessionStorage.getItem('registeredEmail');
@@ -59,29 +60,24 @@ export function ClientAuth() {
         showNotification('Logged in successfully!', 'success');
         navigate('/dashboard');
       } else {
-        // Handle registration
         const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
         
-        // Save additional user data
         await setDoc(doc(db, 'clients', userCredential.user.uid), {
           name: formData.name,
           email: formData.email,
         });
         
-        // Store registration email temporarily
-        sessionStorage.setItem('registeredEmail', formData.email);
-        
-        // Clear form and switch to login mode
-        setFormData({
-          ...formData,
-          password: '',
-        });
-        setIsLogin(true);
-        showNotification('Registration successful! Please log in with your credentials.', 'success');
+        setUser(userCredential.user);
+        showNotification('Registration successful!', 'success');
+        navigate('/dashboard');
       }
     } catch (error) {
       showNotification(error.message, 'error');
     }
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
 
   return (
@@ -139,21 +135,31 @@ export function ClientAuth() {
                 onChange={handleInputChange}
               />
             </div>
-            <div>
+            <div className="relative">
               <label htmlFor="password" className="sr-only">Password</label>
               <input
                 id="password"
                 name="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
                 required
                 className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
                   isDarkMode ? 'border-gray-700 bg-gray-700 text-white' : 'border-gray-300 text-gray-900'
-                } placeholder-gray-500 rounded-b-md focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm`}
+                } placeholder-gray-500 rounded-b-md focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm pr-10`}
                 placeholder="Password"
                 value={formData.password}
                 onChange={handleInputChange}
               />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
+                onClick={togglePasswordVisibility}
+              >
+                {showPassword ? 
+                  <EyeOff className="h-5 w-5 text-gray-400" /> : 
+                  <Eye className="h-5 w-5 text-gray-400" />
+                }
+              </button>
             </div>
           </div>
 

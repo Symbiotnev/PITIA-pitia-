@@ -10,6 +10,12 @@ import Dashboard from './Components/Dashboard';
 import CustomerDashboard from './Components/CustomerDashboard';
 import { getStoredTheme, toggleStoredTheme } from './utils/localStorageUtil';
 
+// Import new admin components
+import Menu from './admin/Menu';
+import Promos from './admin/Promos';
+import Notifications from './admin/Notifications';
+import Orders from './admin/Orders';
+
 export const AuthContext = React.createContext();
 export const ThemeContext = React.createContext();
 
@@ -88,6 +94,47 @@ function App() {
                 element={
                   user ? (
                     userType === 'client' ? <CustomerDashboard /> : <Dashboard />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
+              {/* New routes for admin components */}
+              <Route
+                path="/admin/menu"
+                element={
+                  user && userType === 'serviceProvider' ? (
+                    <Menu />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
+              <Route
+                path="/admin/promos"
+                element={
+                  user && userType === 'serviceProvider' ? (
+                    <Promos />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
+              <Route
+                path="/admin/notifications"
+                element={
+                  user && userType === 'serviceProvider' ? (
+                    <Notifications />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
+              <Route
+                path="/admin/orders"
+                element={
+                  user && userType === 'serviceProvider' ? (
+                    <Orders />
                   ) : (
                     <Navigate to="/" replace />
                   )

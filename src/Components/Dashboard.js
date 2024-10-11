@@ -1,10 +1,35 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
-import { User } from 'lucide-react';
+import { User, Menu, ShoppingBag, Tag, Bell } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { ThemeContext, AuthContext } from '../App';
 import { db } from '../libs/firebase_config.mjs';
 import Navbar from './Navbar';
+
+const DashboardCard = ({ title, icon: Icon, link, isDarkMode }) => (
+  <Link to={link}>
+    <motion.div
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      className={`${
+        isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'
+      } shadow-lg rounded-lg p-6 cursor-pointer transition-colors duration-200`}
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            {title}
+          </h3>
+          <p className={`mt-1 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+            Click to manage
+          </p>
+        </div>
+        <Icon className="h-8 w-8 text-orange-500" />
+      </div>
+    </motion.div>
+  </Link>
+);
 
 const Dashboard = () => {
   const { isDarkMode } = useContext(ThemeContext);
@@ -28,7 +53,6 @@ const Dashboard = () => {
         }
       }
     };
-
     fetchUserData();
   }, [user]);
 
@@ -41,18 +65,17 @@ const Dashboard = () => {
   }
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'dark bg-gray-900 text-white' : 'bg-white text-gray-800'}`}>
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-100 text-gray-800'}`}>
       <Navbar isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
-
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         {/* Welcome Section */}
         <div className="px-4 py-6 sm:px-0">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`${isDarkMode ? 'bg-gray-800' : 'bg-orange-50'} rounded-lg p-6`}
+            className={`${isDarkMode ? 'bg-gray-800' : 'bg-orange-50'} rounded-lg p-6 mb-6`}
           >
-            <div className="flex items-center mb-4">
+            <div className="flex items-center">
               <User className="h-12 w-12 text-orange-500 mr-4" />
               <div>
                 <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -66,15 +89,33 @@ const Dashboard = () => {
           </motion.div>
         </div>
 
-        {/* Dashboard Content Placeholder */}
-        <div className="px-4 py-6 sm:px-0">
-          <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg p-6`}>
-            <h2 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              Your Dashboard Content
-            </h2>
-            <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              This is where your dashboard content will go. You can add various sections, statistics, and features specific to your business needs.
-            </p>
+        {/* Dashboard Cards */}
+        <div className="px-4 sm:px-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <DashboardCard
+              title="Update Menu"
+              icon={Menu}
+              link="/admin/menu"
+              isDarkMode={isDarkMode}
+            />
+            <DashboardCard
+              title="View Orders"
+              icon={ShoppingBag}
+              link="/admin/orders"
+              isDarkMode={isDarkMode}
+            />
+            <DashboardCard
+              title="Create Promos"
+              icon={Tag}
+              link="/admin/promos"
+              isDarkMode={isDarkMode}
+            />
+            <DashboardCard
+              title="Notifications"
+              icon={Bell}
+              link="/admin/notifications"
+              isDarkMode={isDarkMode}
+            />
           </div>
         </div>
       </main>
