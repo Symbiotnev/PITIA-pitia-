@@ -16,6 +16,13 @@ import Promos from './admin/Promos';
 import Notifications from './admin/Notifications';
 import Orders from './admin/Orders';
 
+// Import new customer components
+import MenuComponent from './customer/MenuComponent';
+import CartComponent from './customer/CartComponent';
+import OrdersComponent from './customer/OrdersComponent';
+import ReviewsComponent from './customer/ReviewsComponent';
+import CustomerMenuPage from './customer/MenuComponent'; // Import the new component
+
 export const AuthContext = React.createContext();
 export const ThemeContext = React.createContext();
 
@@ -28,24 +35,16 @@ function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Check if this is a new registration
         const isNewRegistration = sessionStorage.getItem('isNewRegistration');
         if (isNewRegistration) {
-          // Clear the flag
           sessionStorage.removeItem('isNewRegistration');
-          // Sign out the user
           await signOut(auth);
           setUser(null);
           setUserType(null);
         } else {
           setUser(firebaseUser);
-          // Determine user type
           const userDoc = await getDoc(doc(db, 'clients', firebaseUser.uid));
-          if (userDoc.exists()) {
-            setUserType('client');
-          } else {
-            setUserType('serviceProvider');
-          }
+          setUserType(userDoc.exists() ? 'client' : 'serviceProvider');
         }
       } else {
         setUser(null);
@@ -99,46 +98,42 @@ function App() {
                   )
                 }
               />
-              {/* New routes for admin components */}
+              {/* Customer routes */}
               <Route
-                path="/admin/menu"
+                path="/customer/*"
                 element={
-                  user && userType === 'serviceProvider' ? (
-                    <Menu />
+                  user && userType === 'client' ? (
+                    <Routes>
+                      <Route path="menu" element={<MenuComponent />} />
+                      <Route path="cart" element={<CartComponent />} />
+                      <Route path="orders" element={<OrdersComponent />} />
+                      <Route path="reviews" element={<ReviewsComponent />} />
+                    </Routes>
                   ) : (
                     <Navigate to="/" replace />
                   )
                 }
               />
+              {/* Admin routes */}
               <Route
-                path="/admin/promos"
+                path="/admin/*"
                 element={
                   user && userType === 'serviceProvider' ? (
-                    <Promos />
+                    <Routes>
+                      <Route path="menu" element={<Menu />} />
+                      <Route path="promos" element={<Promos />} />
+                      <Route path="notifications" element={<Notifications />} />
+                      <Route path="orders" element={<Orders />} />
+                    </Routes>
                   ) : (
                     <Navigate to="/" replace />
                   )
                 }
               />
+              {/* New route for CustomerMenuPage */}
               <Route
-                path="/admin/notifications"
-                element={
-                  user && userType === 'serviceProvider' ? (
-                    <Notifications />
-                  ) : (
-                    <Navigate to="/" replace />
-                  )
-                }
-              />
-              <Route
-                path="/admin/orders"
-                element={
-                  user && userType === 'serviceProvider' ? (
-                    <Orders />
-                  ) : (
-                    <Navigate to="/" replace />
-                  )
-                }
+                path="/shop/:shopId/menu"
+                element={<CustomerMenuPage />}
               />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

@@ -137,7 +137,7 @@ export function ServiceProviderAuth() {
                   >
                     <option value="">Select Business Type</option>
                     <option value="restaurant">Restaurant</option>
-                    <option value="shop">Shop</option>
+                    <option value="Wines&Spirits-shop">Wines&Spirits-shop</option>
                   </select>
                 </div>
               </>

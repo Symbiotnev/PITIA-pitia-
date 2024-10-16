@@ -79,7 +79,7 @@ const Dashboard = () => {
               <User className="h-12 w-12 text-orange-500 mr-4" />
               <div>
                 <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Welcome back, {userData?.businessName}!
+                  Welcome back To, {userData?.businessName}!
                 </h1>
                 <p className={`mt-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                   {userData?.businessType.charAt(0).toUpperCase() + userData?.businessType.slice(1)} Dashboard

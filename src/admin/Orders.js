@@ -1,9 +1,9 @@
 import React, { useState, useContext } from 'react';
-import { ShoppingBag, ArrowUp, ArrowDown, DollarSign, Clock } from 'lucide-react';
+import { ShoppingBag, ArrowUp, ArrowDown, DollarSign, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { ThemeContext } from '../App';
 import Navbar from '../Components/Navbar';
 
-// Dummy data for orders
+// Dummy data for orders (unchanged)
 const dummyOrders = [
   { id: 1, customerName: 'John Doe', items: ['Burger', 'Fries'], total: 15.99, status: 'pending', date: '2024-10-13' },
   { id: 2, customerName: 'Jane Smith', items: ['Pizza', 'Coke'], total: 20.50, status: 'cleared', date: '2024-10-13' },
@@ -12,6 +12,7 @@ const dummyOrders = [
   { id: 5, customerName: 'Charlie Davis', items: ['Sushi', 'Green Tea'], total: 30.25, status: 'pending', date: '2024-10-11' },
 ];
 
+// StatCard component (unchanged)
 const StatCard = ({ title, value, icon: Icon, change, isDarkMode }) => (
   <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
     <div className="flex items-center justify-between">
@@ -61,53 +62,57 @@ const OrdersPage = () => {
             <StatCard title="Pending Orders" value={pendingOrders} icon={Clock} isDarkMode={isDarkMode} />
           </div>
 
-          {/* Orders Table with Horizontal Scroll */}
+          {/* Updated Orders Table */}
           <div className={`mt-8 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow overflow-hidden sm:rounded-lg`}>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 z-10 bg-inherit">Order ID</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 z-10 bg-inherit">Actions</th>
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
+                <tr>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} divide-y divide-gray-200`}>
+                {orders.map((order) => (
+                  <tr key={order.id}>
+                    <td className={`px-3 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>{order.id}</td>
+                    <td className={`px-3 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{order.customerName}</td>
+                    <td className={`px-3 py-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                      <div className="max-w-xs truncate">{order.items.join(', ')}</div>
+                    </td>
+                    <td className={`px-3 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>${order.total.toFixed(2)}</td>
+                    <td className={`px-3 py-4 whitespace-nowrap text-sm`}>
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        order.status === 'pending' 
+                          ? isDarkMode ? 'bg-yellow-800 text-yellow-100' : 'bg-yellow-100 text-yellow-800'
+                          : isDarkMode ? 'bg-green-800 text-green-100' : 'bg-green-100 text-green-800'
+                      }`}>
+                        {order.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => handleStatusChange(order.id, order.status === 'pending' ? 'cleared' : 'pending')}
+                        className={`inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md ${
+                          order.status === 'pending'
+                            ? 'text-green-700 bg-green-100 hover:bg-green-200'
+                            : 'text-yellow-700 bg-yellow-100 hover:bg-yellow-200'
+                        }`}
+                      >
+                        {order.status === 'pending' ? (
+                          <><CheckCircle className="h-4 w-4 mr-1" /> Clear</>
+                        ) : (
+                          <><AlertCircle className="h-4 w-4 mr-1" /> Pending</>
+                        )}
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} divide-y divide-gray-200`}>
-                  {orders.map((order) => (
-                    <tr key={order.id}>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'} sticky left-0 z-10 bg-inherit`}>{order.id}</td>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{order.customerName}</td>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>{order.items.join(', ')}</td>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>${order.total.toFixed(2)}</td>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm`}>
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          order.status === 'pending' 
-                            ? isDarkMode ? 'bg-yellow-800 text-yellow-100' : 'bg-yellow-100 text-yellow-800'
-                            : isDarkMode ? 'bg-green-800 text-green-100' : 'bg-green-100 text-green-800'
-                        }`}>
-                          {order.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium sticky right-0 z-10 bg-inherit">
-                        <button
-                          onClick={() => handleStatusChange(order.id, order.status === 'pending' ? 'cleared' : 'pending')}
-                          className={`${
-                            order.status === 'pending'
-                              ? 'text-green-600 hover:text-green-900'
-                              : 'text-yellow-600 hover:text-yellow-900'
-                          }`}
-                        >
-                          {order.status === 'pending' ? 'Mark Cleared' : 'Mark Pending'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </main>
