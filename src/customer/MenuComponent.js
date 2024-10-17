@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { ref, getDownloadURL } from 'firebase/storage';
-import { motion } from 'framer-motion';
-import { ShoppingCart } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ShoppingCart, X } from 'lucide-react';
 import { db, storage } from '../libs/firebase_config';
 import { ThemeContext } from '../App';
 import Navbar from '../Components/Navbar';
+import { getStoredCart, addToStoredCart } from '../utils/localStorageUtil';
 
 const CustomerMenuPage = () => {
+  const navigate = useNavigate();
   const { isDarkMode } = useContext(ThemeContext);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [serviceProviders, setServiceProviders] = useState([]);
@@ -19,6 +22,7 @@ const CustomerMenuPage = () => {
   const [promos, setPromos] = useState([]);
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState(null);
 
   useEffect(() => {
     const fetchServiceProviders = async () => {
@@ -34,6 +38,7 @@ const CustomerMenuPage = () => {
     };
 
     fetchServiceProviders();
+    setCart(getStoredCart());
   }, []);
 
   useEffect(() => {
@@ -92,16 +97,14 @@ const CustomerMenuPage = () => {
   };
 
   const addToCart = (item) => {
-    setCart(prevCart => {
-      const existingItem = prevCart.find(cartItem => cartItem.id === item.id);
-      if (existingItem) {
-        return prevCart.map(cartItem =>
-          cartItem.id === item.id ? { ...cartItem, quantity: cartItem.quantity + 1 } : cartItem
-        );
-      } else {
-        return [...prevCart, { ...item, quantity: 1 }];
-      }
-    });
+    const updatedCart = addToStoredCart(item);
+    setCart(updatedCart);
+    showNotification(`${item.name} added to cart`);
+  };
+
+  const showNotification = (message) => {
+    setNotification(message);
+    setTimeout(() => setNotification(null), 3000);
   };
 
   const getPromoForItem = (itemId) => {
@@ -216,7 +219,10 @@ const CustomerMenuPage = () => {
       animate={{ scale: 1 }}
       whileHover={{ scale: 1.1 }}
     >
-      <button className="bg-orange-500 text-white rounded-full p-4 shadow-lg relative">
+      <button 
+        className="bg-orange-500 text-white rounded-full p-4 shadow-lg relative"
+        onClick={() => navigate('/customer/cart')}
+      >
         <ShoppingCart size={24} />
         {cart.length > 0 && (
           <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">
@@ -224,6 +230,17 @@ const CustomerMenuPage = () => {
           </span>
         )}
       </button>
+    </motion.div>
+  );
+
+  const Notification = ({ message }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 50 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 50 }}
+      className="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-md shadow-lg"
+    >
+      {message}
     </motion.div>
   );
 
@@ -306,7 +323,7 @@ const CustomerMenuPage = () => {
               (selectedSection ? [selectedSection] : menuSections).map(section => (
                 <div key={section.id} className="mb-8">
                   <h2 className="text-2xl font-semibold mb-4">{section.name}</h2>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {menuItems[section.id]?.map(item => (
                       <MenuItemCard key={item.id} item={item} />
                     ))}
@@ -318,6 +335,9 @@ const CustomerMenuPage = () => {
         )}
       </main>
       <FloatingCartButton />
+      <AnimatePresence>
+        {notification && <Notification message={notification} />}
+      </AnimatePresence>
     </div>
   );
 };
