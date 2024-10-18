@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeContext, AuthContext } from '../App';
 import Navbar from '../Components/Navbar';
 import { getStoredCart, setStoredCart } from '../utils/localStorageUtil';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../libs/firebase_config.mjs';
 
 const CartComponent = () => {
@@ -17,6 +17,8 @@ const CartComponent = () => {
   const [total, setTotal] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [userData, setUserData] = useState(null);
+  const [orderPlaced, setOrderPlaced] = useState(false);
+  const [error, setError] = useState(null);
 
   const fetchUserData = useCallback(async () => {
     if (user) {
@@ -27,6 +29,7 @@ const CartComponent = () => {
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
+        setError("Failed to fetch user data. Please try again.");
       }
     }
   }, [user]);
@@ -68,10 +71,51 @@ const CartComponent = () => {
     setStoredCart(updatedCart);
   };
 
+  const placeOrder = async () => {
+    if (!user || cart.length === 0) return;
+
+    try {
+      const orderData = {
+        userId: user.uid,
+        items: cart.map(item => {
+          if (!item.id || !item.name || !item.price || !item.quantity) {
+            console.error('Invalid item data:', item);
+            throw new Error('Invalid item data');
+          }
+          return {
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            serviceProviderId: item.serviceProviderId || null
+          };
+        }),
+        total: parseFloat((total + 20).toFixed(2)),
+        status: 'placed',
+        paymentStatus: 'pending',
+        createdAt: serverTimestamp()
+      };
+
+      console.log('Order data:', JSON.stringify(orderData, null, 2));
+
+      const orderRef = await addDoc(collection(db, 'orders'), orderData);
+      console.log("Order placed with ID: ", orderRef.id);
+
+      setCart([]);
+      setStoredCart([]);
+      setOrderPlaced(true);
+      setError(null);
+    } catch (error) {
+      console.error("Error placing order:", error);
+      setError("Failed to place order. Please try again.");
+    }
+  };
+
   const CartItem = ({ item }) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
       className={`${
         isDarkMode ? 'bg-gray-800' : 'bg-white'
       } rounded-lg p-4 shadow-md mb-4`}
@@ -139,7 +183,25 @@ const CartComponent = () => {
           </div>
         )}
         
-        {cart.length === 0 ? (
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <strong className="font-bold">Error: </strong>
+            <span className="block sm:inline">{error}</span>
+          </div>
+        )}
+
+        {orderPlaced ? (
+          <div className="text-center py-12">
+            <h2 className="text-xl font-semibold mb-2">Order Placed Successfully!</h2>
+            <p className="text-gray-500 mb-4">Thank you for your order. You'll pay when it arrives.</p>
+            <button
+              onClick={() => navigate('/customer/orders')}
+              className="bg-orange-500 text-white px-6 py-2 rounded-md hover:bg-orange-600 transition-colors"
+            >
+              View Orders
+            </button>
+          </div>
+        ) : cart.length === 0 ? (
           <div className="text-center py-12">
             <ShoppingBag size={48} className="mx-auto mb-4 text-gray-400" />
             <h2 className="text-xl font-semibold mb-2">Your cart is empty</h2>
@@ -179,9 +241,9 @@ const CartComponent = () => {
                 </div>
                 <button
                   className="w-full bg-orange-500 text-white py-3 rounded-md hover:bg-orange-600 transition-colors"
-                  onClick={() => navigate('/customer/checkout')}
+                  onClick={placeOrder}
                 >
-                  Proceed to Checkout
+                  Place Order (Pay on Delivery)
                 </button>
               </div>
             </div>

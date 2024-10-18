@@ -1,123 +1,252 @@
-import React, { useState, useContext } from 'react';
-import { ShoppingBag, ArrowUp, ArrowDown, DollarSign, Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import { ThemeContext } from '../App';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
+import { ShoppingBag, ChevronDown, ChevronUp, Calendar, Clock, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ThemeContext, AuthContext } from '../App';
 import Navbar from '../Components/Navbar';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { db } from '../libs/firebase_config.mjs';
 
-// Dummy data for orders (unchanged)
-const dummyOrders = [
-  { id: 1, customerName: 'John Doe', items: ['Burger', 'Fries'], total: 15.99, status: 'pending', date: '2024-10-13' },
-  { id: 2, customerName: 'Jane Smith', items: ['Pizza', 'Coke'], total: 20.50, status: 'cleared', date: '2024-10-13' },
-  { id: 3, customerName: 'Bob Johnson', items: ['Salad', 'Water'], total: 8.75, status: 'pending', date: '2024-10-12' },
-  { id: 4, customerName: 'Alice Brown', items: ['Steak', 'Wine'], total: 45.00, status: 'cleared', date: '2024-10-12' },
-  { id: 5, customerName: 'Charlie Davis', items: ['Sushi', 'Green Tea'], total: 30.25, status: 'pending', date: '2024-10-11' },
-];
-
-// StatCard component (unchanged)
-const StatCard = ({ title, value, icon: Icon, change, isDarkMode }) => (
-  <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
-    <div className="flex items-center justify-between">
-      <div>
-        <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{title}</p>
-        <p className={`mt-2 text-3xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{value}</p>
-        {change !== undefined && (
-          <p className={`mt-2 flex items-center text-sm ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {change >= 0 ? <ArrowUp className="h-4 w-4 mr-1" /> : <ArrowDown className="h-4 w-4 mr-1" />}
-            {Math.abs(change)}%
-          </p>
-        )}
-      </div>
-      <div className={`rounded-full p-3 ${isDarkMode ? 'bg-gray-700' : 'bg-orange-100'}`}>
-        <Icon className="h-6 w-6 text-orange-500" />
-      </div>
-    </div>
-  </div>
-);
-
-const OrdersPage = () => {
+const ServiceProviderOrdersComponent = () => {
+  const { user } = useContext(AuthContext);
   const { isDarkMode } = useContext(ThemeContext);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [orders, setOrders] = useState(dummyOrders);
+  const [expandedOrder, setExpandedOrder] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('all');
 
-  const totalOrders = orders.length;
-  const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0).toFixed(2);
-  const pendingOrders = orders.filter(order => order.status === 'pending').length;
+  const fetchOrders = useCallback(async () => {
+    if (!user) return;
 
-  const handleStatusChange = (orderId, newStatus) => {
-    setOrders(orders.map(order => 
-      order.id === orderId ? { ...order, status: newStatus } : order
-    ));
+    try {
+      const ordersRef = collection(db, 'orders');
+      const q = query(
+        ordersRef,
+        where('items', 'array-contains', { serviceProviderId: user.uid })
+      );
+      const querySnapshot = await getDocs(q);
+      const fetchedOrders = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate() || new Date(),
+      }));
+      
+      // Sort orders by status and date
+      fetchedOrders.sort((a, b) => {
+        if (a.status === 'placed' && b.status !== 'placed') return -1;
+        if (a.status !== 'placed' && b.status === 'placed') return 1;
+        return b.createdAt - a.createdAt;
+      });
+
+      setOrders(fetchedOrders);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  const markAsDelivered = async (orderId) => {
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, {
+        status: 'delivered'
+      });
+      await fetchOrders(); // Refresh orders after update
+    } catch (error) {
+      console.error("Error updating order status:", error);
+    }
   };
+
+  const toggleOrderExpansion = (orderId) => {
+    setExpandedOrder(expandedOrder === orderId ? null : orderId);
+  };
+
+  const filteredOrders = orders.filter(order => {
+    if (filterStatus === 'all') return true;
+    if (filterStatus === 'pending') return order.status === 'placed';
+    if (filterStatus === 'delivered') return order.status === 'delivered';
+    return true;
+  });
+
+  const OrderCard = ({ order }) => {
+    const isExpanded = expandedOrder === order.id;
+    const providerItems = order.items.filter(item => item.serviceProviderId === user.uid);
+    const totalItems = providerItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    const providerTotal = providerItems.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className={`${
+          isDarkMode ? 'bg-gray-800' : 'bg-white'
+        } rounded-lg p-4 shadow-md mb-4`}
+      >
+        <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleOrderExpansion(order.id)}>
+          <div className="flex items-center space-x-4">
+            <div className={`p-2 rounded-full ${
+              order.status === 'delivered' ? 'bg-green-500' : 
+              order.status === 'placed' ? 'bg-yellow-500' : 
+              'bg-gray-500'
+            }`}>
+              <ShoppingBag size={20} className="text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Order #{order.id.slice(0, 8)}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {totalItems} item{totalItems !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm font-medium">
+              KES {providerTotal.toFixed(2)}
+            </span>
+            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          </div>
+        </div>
+
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="mt-4 space-y-4"
+            >
+              {providerItems.map((item, index) => (
+                <div key={index} className="flex justify-between items-center mb-2">
+                  <div className="flex flex-col">
+                    <span className="font-medium">{item.name}</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      Quantity: {item.quantity}
+                    </span>
+                  </div>
+                  <span className="font-medium">
+                    KES {(parseFloat(item.price) * item.quantity).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+              
+              <div className="flex justify-between items-center mt-4 pt-2 border-t">
+                <div className="flex items-center space-x-2">
+                  <Calendar size={16} className="text-gray-500" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    {order.createdAt.toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Clock size={16} className="text-gray-500" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    {order.createdAt.toLocaleTimeString()}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="mt-2 text-sm">
+                <strong>Status:</strong> 
+                <span className={`ml-2 ${
+                  order.status === 'delivered' ? 'text-green-500' :
+                  order.status === 'placed' ? 'text-yellow-500' :
+                  'text-gray-500'
+                }`}>
+                  {order.status === 'placed' ? 'Pending' : order.status}
+                </span>
+              </div>
+              
+              <div className="mt-2 text-sm">
+                <strong>Payment Status:</strong> 
+                <span className={`ml-2 ${
+                  order.paymentStatus === 'completed' ? 'text-green-500' :
+                  order.paymentStatus === 'pending' ? 'text-yellow-500' :
+                  'text-red-500'
+                }`}>
+                  {order.paymentStatus}
+                </span>
+              </div>
+
+              {order.status === 'placed' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markAsDelivered(order.id);
+                  }}
+                  className="mt-4 flex items-center space-x-2 bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors"
+                >
+                  <Check size={16} />
+                  <span>Mark as Delivered</span>
+                </button>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-100 text-gray-800'}`}>
       <Navbar isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Orders</h1>
-          
-          {/* Stats Section */}
-          <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <StatCard title="Total Orders" value={totalOrders} icon={ShoppingBag} change={5} isDarkMode={isDarkMode} />
-            <StatCard title="Total Revenue" value={`$${totalRevenue}`} icon={DollarSign} change={-2} isDarkMode={isDarkMode} />
-            <StatCard title="Pending Orders" value={pendingOrders} icon={Clock} isDarkMode={isDarkMode} />
-          </div>
+      
+      <main className="container mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold mb-6">Your Orders</h1>
 
-          {/* Updated Orders Table */}
-          <div className={`mt-8 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow overflow-hidden sm:rounded-lg`}>
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
-                <tr>
-                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} divide-y divide-gray-200`}>
-                {orders.map((order) => (
-                  <tr key={order.id}>
-                    <td className={`px-3 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>{order.id}</td>
-                    <td className={`px-3 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{order.customerName}</td>
-                    <td className={`px-3 py-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
-                      <div className="max-w-xs truncate">{order.items.join(', ')}</div>
-                    </td>
-                    <td className={`px-3 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>${order.total.toFixed(2)}</td>
-                    <td className={`px-3 py-4 whitespace-nowrap text-sm`}>
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        order.status === 'pending' 
-                          ? isDarkMode ? 'bg-yellow-800 text-yellow-100' : 'bg-yellow-100 text-yellow-800'
-                          : isDarkMode ? 'bg-green-800 text-green-100' : 'bg-green-100 text-green-800'
-                      }`}>
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => handleStatusChange(order.id, order.status === 'pending' ? 'cleared' : 'pending')}
-                        className={`inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md ${
-                          order.status === 'pending'
-                            ? 'text-green-700 bg-green-100 hover:bg-green-200'
-                            : 'text-yellow-700 bg-yellow-100 hover:bg-yellow-200'
-                        }`}
-                      >
-                        {order.status === 'pending' ? (
-                          <><CheckCircle className="h-4 w-4 mr-1" /> Clear</>
-                        ) : (
-                          <><AlertCircle className="h-4 w-4 mr-1" /> Pending</>
-                        )}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="mb-6 flex justify-between items-center">
+          <div className="flex space-x-2">
+            {['all', 'pending', 'delivered'].map((status) => (
+              <button
+                key={status}
+                onClick={() => setFilterStatus(status)}
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  filterStatus === status
+                    ? 'bg-orange-500 text-white'
+                    : isDarkMode
+                    ? 'bg-gray-700 text-gray-200 hover:bg-gray-600'
+                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                }`}
+              >
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </button>
+            ))}
           </div>
         </div>
+
+        {filteredOrders.length === 0 ? (
+          <div className="text-center py-12">
+            <ShoppingBag size={48} className="mx-auto mb-4 text-gray-400" />
+            <h2 className="text-xl font-semibold mb-2">No orders found</h2>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">
+              {filterStatus === 'all' 
+                ? "You don't have any orders yet."
+                : `No ${filterStatus} orders found.`}
+            </p>
+          </div>
+        ) : (
+          <AnimatePresence>
+            {filteredOrders.map(order => (
+              <OrderCard key={order.id} order={order} />
+            ))}
+          </AnimatePresence>
+        )}
       </main>
     </div>
   );
 };
 
-export default OrdersPage;
+export default ServiceProviderOrdersComponent;

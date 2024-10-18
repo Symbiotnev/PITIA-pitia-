@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { ref, getDownloadURL } from 'firebase/storage';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, X } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import { db, storage } from '../libs/firebase_config';
 import { ThemeContext } from '../App';
 import Navbar from '../Components/Navbar';
@@ -63,7 +63,10 @@ const CustomerMenuPage = () => {
 
   const fetchMenuSections = async () => {
     try {
-      const sectionsSnapshot = await getDocs(query(collection(db, 'menuSections'), where('userId', '==', selectedProvider.id)));
+      const sectionsSnapshot = await getDocs(
+        query(collection(db, 'menuSections'), 
+        where('userId', '==', selectedProvider.id))
+      );
       const sectionsData = sectionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setMenuSections(sectionsData);
     } catch (error) {
@@ -73,7 +76,10 @@ const CustomerMenuPage = () => {
 
   const fetchMenuItems = async () => {
     try {
-      const itemsSnapshot = await getDocs(query(collection(db, 'menuItems'), where('userId', '==', selectedProvider.id)));
+      const itemsSnapshot = await getDocs(
+        query(collection(db, 'menuItems'), 
+        where('userId', '==', selectedProvider.id))
+      );
       const itemsData = itemsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       const itemsBySectionId = itemsData.reduce((acc, item) => {
         if (!acc[item.sectionId]) acc[item.sectionId] = [];
@@ -88,7 +94,10 @@ const CustomerMenuPage = () => {
 
   const fetchPromos = async () => {
     try {
-      const promosSnapshot = await getDocs(query(collection(db, 'promos'), where('userId', '==', selectedProvider.id)));
+      const promosSnapshot = await getDocs(
+        query(collection(db, 'promos'), 
+        where('userId', '==', selectedProvider.id))
+      );
       const promosData = promosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setPromos(promosData);
     } catch (error) {
@@ -96,15 +105,10 @@ const CustomerMenuPage = () => {
     }
   };
 
-  const addToCart = (item) => {
-    const updatedCart = addToStoredCart(item);
-    setCart(updatedCart);
-    showNotification(`${item.name} added to cart`);
-  };
-
-  const showNotification = (message) => {
-    setNotification(message);
-    setTimeout(() => setNotification(null), 3000);
+  const calculatePromoPrice = (originalPrice, promoValue) => {
+    const percentageValue = parseFloat(promoValue.replace('%', ''));
+    const discountAmount = (parseFloat(originalPrice) * percentageValue) / 100;
+    return (parseFloat(originalPrice) - discountAmount).toFixed(2);
   };
 
   const getPromoForItem = (itemId) => {
@@ -112,8 +116,36 @@ const CustomerMenuPage = () => {
     return promos.find(promo => 
       promo.itemId === itemId && 
       new Date(promo.startDate) <= now && 
-      new Date(promo.endDate) >= now
+      new Date(promo.endDate) >= now &&
+      promo.type === 'discount'
     );
+  };
+
+  const addToCart = (item, promo = null) => {
+    const activePromo = promo || getPromoForItem(item.id);
+    
+    const itemToAdd = {
+      ...item,
+      serviceProviderId: selectedProvider.id,
+      serviceProviderName: selectedProvider.businessName,
+      originalPrice: item.price,
+      finalPrice: activePromo ? calculatePromoPrice(item.price, activePromo.value) : item.price,
+      promoApplied: activePromo ? {
+        id: activePromo.id,
+        value: activePromo.value,
+        description: activePromo.description,
+        endDate: activePromo.endDate
+      } : null
+    };
+
+    const updatedCart = addToStoredCart(itemToAdd);
+    setCart(updatedCart);
+    showNotification(`${item.name} added to cart${activePromo ? ' with ' + activePromo.value + ' discount' : ''}`);
+  };
+
+  const showNotification = (message) => {
+    setNotification(message);
+    setTimeout(() => setNotification(null), 3000);
   };
 
   const CategoryButton = ({ category, onClick, isActive }) => (
@@ -133,7 +165,8 @@ const CustomerMenuPage = () => {
 
   const MenuItemCard = ({ item }) => {
     const [imageUrl, setImageUrl] = useState('');
-    const promo = getPromoForItem(item.id);
+    const activePromo = getPromoForItem(item.id);
+    const finalPrice = activePromo ? calculatePromoPrice(item.price, activePromo.value) : item.price;
 
     useEffect(() => {
       const fetchImageUrl = async () => {
@@ -155,9 +188,9 @@ const CustomerMenuPage = () => {
         animate={{ opacity: 1, y: 0 }}
         className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-4 shadow-md relative`}
       >
-        {promo && (
+        {activePromo && (
           <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold">
-            PROMO
+            {activePromo.value} OFF
           </div>
         )}
         <div className="w-full h-32 bg-gray-300 rounded-md mb-4 overflow-hidden">
@@ -175,28 +208,27 @@ const CustomerMenuPage = () => {
           )}
         </div>
         <h3 className="font-semibold text-lg mb-2">{item.name}</h3>
-        <p className="text-gray-600 dark:text-gray-300 mb-2 text-sm">{item.description}</p>
         <div className="flex justify-between items-center">
-          <span className="font-bold">
-            {promo ? (
+          <div className="flex flex-col">
+            {activePromo ? (
               <>
-                <span className="line-through text-gray-500 mr-2">KES {item.price}</span>
-                <span className="text-green-500">KES {parseFloat(item.price) * (1 - parseFloat(promo.value) / 100)}</span>
+                <span className="line-through text-gray-500 text-sm">KES {item.price}</span>
+                <span className="text-green-500 font-bold">KES {finalPrice}</span>
               </>
             ) : (
-              `KES ${item.price}`
+              <span className="font-bold">KES {item.price}</span>
             )}
-          </span>
+          </div>
           <button
-            onClick={() => addToCart(item)}
+            onClick={() => addToCart(item, activePromo)}
             className="bg-orange-500 text-white px-3 py-1 rounded-md hover:bg-orange-600 transition-colors text-sm"
           >
             Add
           </button>
         </div>
-        {promo && (
+        {activePromo && (
           <div className="mt-2 bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs">
-            {promo.description}
+            {activePromo.description}
           </div>
         )}
       </motion.div>
@@ -248,21 +280,27 @@ const CustomerMenuPage = () => {
     <div className={`min-h-screen ${isDarkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-100 text-gray-800'}`}>
       <Navbar isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {/* Category Selection */}
         <div className="mb-6 flex justify-center space-x-4">
           <CategoryButton
             category="Restaurants"
-            onClick={() => setSelectedCategory('restaurant')}
+            onClick={() => {
+              setSelectedCategory('restaurant');
+              setSelectedProvider(null);
+              setSelectedSection(null);
+            }}
             isActive={selectedCategory === 'restaurant'}
           />
           <CategoryButton
             category="Wines & Spirits"
-            onClick={() => setSelectedCategory('Wines&Spirits-shop')}
+            onClick={() => {
+              setSelectedCategory('Wines&Spirits-shop');
+              setSelectedProvider(null);
+              setSelectedSection(null);
+            }}
             isActive={selectedCategory === 'Wines&Spirits-shop'}
           />
         </div>
 
-        {/* Service Provider Selection */}
         {selectedCategory && (
           <div className="mb-6">
             <label htmlFor="serviceProvider" className="block text-sm font-medium mb-2">
@@ -288,10 +326,10 @@ const CustomerMenuPage = () => {
 
         {selectedProvider && (
           <>
-            {/* Provider Name */}
-            <h1 className="text-3xl font-bold mb-6 text-center">{selectedProvider.businessName || 'Our Menu'}</h1>
+            <h1 className="text-3xl font-bold mb-6 text-center">
+              {selectedProvider.businessName || 'Our Menu'}
+            </h1>
 
-            {/* Menu Section Selection */}
             {menuSections.length > 0 && (
               <div className="mb-6">
                 <label htmlFor="menuSection" className="block text-sm font-medium mb-2">
@@ -342,4 +380,4 @@ const CustomerMenuPage = () => {
   );
 };
 
-export default CustomerMenuPage;
+export default CustomerMenuPage
